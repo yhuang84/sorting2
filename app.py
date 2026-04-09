@@ -334,7 +334,7 @@ def run_classification(model, image, layer_idx, layer_label, source_label=""):
 
     with col_img:
         st.subheader("Input Image")
-        st.image(image, caption=source_label)
+        st.image(image, caption=source_label, output_format="PNG")
 
     with col_res:
         st.subheader("Prediction")
@@ -564,7 +564,7 @@ else:
         sample_path = Path(fname)
         if sample_path.exists():
             with col:
-                st.image(str(sample_path), caption=label, width=130)
+                st.image(str(sample_path), caption=label, width=130, output_format="PNG")
 
         else:
             with col:
