@@ -20,4 +20,4 @@ matplotlib>=3.8.0
 qrcode[pil]>=7.4
 
 # Utilities
-numpy>=1.26.0
+numpy<2.0
