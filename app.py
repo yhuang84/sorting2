@@ -9,7 +9,7 @@ Includes Grad-CAM and Top-30 Feature Map visualizations.
 Supports both image upload and phone camera capture.
 """
 
-import io
+import io  # still needed for QR code generation
 import socket
 
 import numpy as np
@@ -181,7 +181,7 @@ class GradCAM:
             h.remove()
 
 
-def make_gradcam_figure(image_rgb, cam, pred_label, confidence) -> bytes:
+def make_gradcam_figure(image_rgb, cam, pred_label, confidence) -> plt.Figure:
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
     axes[0].imshow(image_rgb)
     axes[0].set_title("Original Image", fontsize=12, fontweight="bold")
@@ -198,7 +198,7 @@ def make_gradcam_figure(image_rgb, cam, pred_label, confidence) -> bytes:
     fig.colorbar(sm, ax=axes[1], fraction=0.046, pad=0.04, label="Activation")
     fig.suptitle("Grad-CAM: regions driving the prediction", fontsize=13)
     fig.tight_layout()
-    return _fig_to_bytes(fig)
+    return fig
 
 
 # ==============================================================================
@@ -217,7 +217,7 @@ def extract_feature_maps(model, tensor, layer_idx):
     return captured["fmaps"].squeeze(0)   # (C, H, W)
 
 
-def make_feature_map_figure(fmaps, image_rgb, layer_name) -> bytes:
+def make_feature_map_figure(fmaps, image_rgb, layer_name) -> plt.Figure:
     n_channels    = fmaps.shape[0]
     channel_means = fmaps.mean(dim=(1, 2)).numpy()
     top_indices   = np.argsort(channel_means)[::-1][:TOP_N].copy()
@@ -236,10 +236,10 @@ def make_feature_map_figure(fmaps, image_rgb, layer_name) -> bytes:
         ax.set_title(f"Ch {ch_idx}\nmu={channel_means[ch_idx]:.2f}", fontsize=7, pad=2)
         ax.axis("off")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    return _fig_to_bytes(fig)
+    return fig
 
 
-def make_feature_overlay_figure(fmaps, image_rgb, layer_name) -> bytes:
+def make_feature_overlay_figure(fmaps, image_rgb, layer_name) -> plt.Figure:
     channel_means = fmaps.mean(dim=(1, 2)).numpy()
     top_indices   = np.argsort(channel_means)[::-1][:TOP_N].copy()
     composite     = fmaps[top_indices].mean(dim=0).numpy()
@@ -263,13 +263,13 @@ def make_feature_overlay_figure(fmaps, image_rgb, layer_name) -> bytes:
     fig.colorbar(sm, ax=axes[1], fraction=0.046, pad=0.04, label="Activation")
     fig.suptitle(f"Mean of top-{TOP_N} most activated channels", fontsize=13)
     fig.tight_layout()
-    return _fig_to_bytes(fig)
+    return fig
 
 
 # ==============================================================================
 # BAR CHART
 # ==============================================================================
-def make_bar_chart(probs: np.ndarray) -> bytes:
+def make_bar_chart(probs: np.ndarray) -> plt.Figure:
     fig, ax = plt.subplots(figsize=(6, 3.2))
     colors = [CATEGORY_COLORS[c] for c in CATEGORIES]
     bars = ax.barh(CATEGORIES, probs * 100, color=colors, height=0.55, edgecolor="white")
@@ -286,15 +286,10 @@ def make_bar_chart(probs: np.ndarray) -> bytes:
     ax.spines[["top", "right"]].set_visible(False)
     ax.tick_params(axis="y", labelsize=10)
     fig.tight_layout()
-    return _fig_to_bytes(fig)
+    return fig
 
 
-def _fig_to_bytes(fig: plt.Figure) -> bytes:
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
-    buf.seek(0)
-    plt.close(fig)
-    return buf.read()
+
 
 
 # ==============================================================================
@@ -340,7 +335,7 @@ def run_classification(model, image, layer_idx, layer_label, source_label=""):
             """,
             unsafe_allow_html=True,
         )
-        st.image(make_bar_chart(probs))
+        st.pyplot(make_bar_chart(probs))
 
     with st.expander("Detailed probability table"):
         for cat, p in sorted(zip(CATEGORIES, probs), key=lambda x: x[1], reverse=True):
@@ -362,10 +357,7 @@ def run_classification(model, image, layer_idx, layer_label, source_label=""):
             cam_map = gcam.generate(input_tensor.clone(), pred_idx)
             gcam.remove()
             model.zero_grad()
-        st.image(
-            make_gradcam_figure(image_rgb, cam_map, pred_label, confidence),
-            
-        )
+        st.pyplot(make_gradcam_figure(image_rgb, cam_map, pred_label, confidence))
         st.caption("Hot (red) = high contribution to prediction; cool (blue) = low contribution.")
 
     with tab_fmaps:
@@ -377,17 +369,11 @@ def run_classification(model, image, layer_idx, layer_label, source_label=""):
             fmaps = extract_feature_maps(model, input_tensor, layer_idx)
 
         st.subheader("Composite Overlay")
-        st.image(
-            make_feature_overlay_figure(fmaps, image_rgb, layer_label),
-            
-        )
+        st.pyplot(make_feature_overlay_figure(fmaps, image_rgb, layer_label))
         st.caption(f"Average of the top-{TOP_N} most activated channels overlaid on the input.")
 
         st.subheader(f"Top-{TOP_N} Individual Feature Maps")
-        st.image(
-            make_feature_map_figure(fmaps, image_rgb, layer_label),
-            
-        )
+        st.pyplot(make_feature_map_figure(fmaps, image_rgb, layer_label))
         st.caption("Each cell = one feature map channel. Brighter (yellow) = stronger activation.")
 
 
