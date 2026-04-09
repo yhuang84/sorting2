@@ -565,8 +565,7 @@ else:
         if sample_path.exists():
             with col:
                 st.image(str(sample_path), caption=label, width=130)
-                if st.button(f"Use this", key=f"sample_{fname}"):
-                    clicked_sample = (sample_path, label)
+
         else:
             with col:
                 st.markdown(
