@@ -255,14 +255,15 @@ def make_feature_map_figure(fmaps, layer_name) -> plt.Figure:
         f"(ranked by mean activation, {n_channels} total channels)",
         fontsize=13, fontweight="bold", y=0.98,
     )
-    gs = gridspec.GridSpec(nrows, ncols, figure=fig, hspace=0.45, wspace=0.25)
+    gs = gridspec.GridSpec(nrows, ncols, figure=fig,
+                           hspace=0.45, wspace=0.25,
+                           top=0.92, bottom=0.02, left=0.02, right=0.98)
     for plot_i, ch_idx in enumerate(top_indices):
         row, col = divmod(plot_i, ncols)
         ax = fig.add_subplot(gs[row, col])
         ax.imshow(fmaps[ch_idx].numpy(), cmap="viridis", interpolation="nearest")
         ax.set_title(f"Ch {ch_idx}\nmu={channel_means[ch_idx]:.2f}", fontsize=7, pad=2)
         ax.axis("off")
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
     return fig
 
 
@@ -598,12 +599,16 @@ else:
     if "selected_sample" in st.session_state:
         sample_path, sample_label = st.session_state["selected_sample"]
         sample_img = Image.open(sample_path).convert("RGB")
-        st.success(f"Sample selected: **{sample_label}** — original size: "
-                   f"{sample_img.size[0]}×{sample_img.size[1]}")
+        col_msg, col_clear = st.columns([4, 1])
+        with col_msg:
+            st.success(f"Sample selected: **{sample_label}** — original size: "
+                       f"{sample_img.size[0]}×{sample_img.size[1]}")
+        with col_clear:
+            if st.button("✕ Clear", key="clear_sample"):
+                del st.session_state["selected_sample"]
+                st.rerun()
         run_classification(model, sample_img, layer_idx, layer_label,
                            source_label=f"Sample — {sample_label}")
-
-    st.divider()
 
     # ---- Two tabs ------------------------------------------------------------
     tab_upload, tab_phone = st.tabs(
