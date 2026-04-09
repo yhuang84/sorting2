@@ -547,7 +547,7 @@ else:
     )
     st.divider()
 
-        # ---- Sample images (click to classify) -----------------------------------
+    # ---- Sample images (click to classify) -----------------------------------
     SAMPLE_IMAGES = [
         ("SW_SC_183_Face_s512_p03.jpg", "Satin Weave"),
         ("TW_HL_800__s512_p01.jpg",     "Twill Weave"),
@@ -556,6 +556,27 @@ else:
         ("JK_HS_52_Face_s512_p06.jpg",  "Jersey Knit"),
     ]
 
+    # CSS: hide button chrome, make image act as clickable card
+    st.markdown("""
+    <style>
+    .sample-card button {
+        all: unset;
+        cursor: pointer;
+        display: block;
+        border-radius: 10px;
+        overflow: hidden;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .sample-card button:hover {
+        transform: scale(1.04);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+    .sample-card button:active {
+        transform: scale(0.97);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.markdown("#### Sample Images — click one to classify")
     sample_cols = st.columns(len(SAMPLE_IMAGES))
 
@@ -563,9 +584,13 @@ else:
         sample_path = Path(fname)
         with col:
             if sample_path.exists():
-                st.image(str(sample_path), caption=label, width=130)
-                if st.button(f"Classify", key=f"btn_{fname}", use_container_width=True):
-                    st.session_state["selected_sample"] = (str(sample_path), label)
+                with st.container():
+                    st.markdown('<div class="sample-card">', unsafe_allow_html=True)
+                    if st.button(label, key=f"btn_{fname}", use_container_width=True):
+                        st.session_state["selected_sample"] = (str(sample_path), label)
+                    st.image(str(sample_path), caption=label, width=130,
+                             output_format="PNG")
+                    st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.caption(f"{label}\n({fname} not found)")
 
@@ -573,7 +598,8 @@ else:
     if "selected_sample" in st.session_state:
         sample_path, sample_label = st.session_state["selected_sample"]
         sample_img = Image.open(sample_path).convert("RGB")
-        st.success(f"Sample selected: **{sample_label}** — original size: {sample_img.size[0]}×{sample_img.size[1]}")
+        st.success(f"Sample selected: **{sample_label}** — original size: "
+                   f"{sample_img.size[0]}×{sample_img.size[1]}")
         run_classification(model, sample_img, layer_idx, layer_label,
                            source_label=f"Sample — {sample_label}")
 
