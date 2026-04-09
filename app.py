@@ -550,11 +550,11 @@ else:
 
     # ---- Sample images (click to classify) -----------------------------------
     SAMPLE_IMAGES = [
-        ("SW_SC_183_Face_s512_p03.jpg", "Satin Weave"),
-        ("TW_HL_800__s512_p01.jpg",     "Twill Weave"),
-        ("RK_TK_16_Back_s512_p02.jpg",  "Rib Knit"),
-        ("PW_HL_803_s512_p00.jpg",      "Plain Weave"),
-        ("JK_HS_52_Face_s512_p06.jpg",  "Jersey Knit"),
+        ("SW_SC_183_Face_s512_p03.jpg", "1"),
+        ("TW_HL_800__s512_p01.jpg",     "2"),
+        ("RK_TK_16_Back_s512_p02.jpg",  "3"),
+        ("PW_HL_803_s512_p00.jpg",      "4"),
+        ("JK_HS_52_Face_s512_p06.jpg",  "5"),
     ]
 
     # CSS: hide button chrome, make image act as clickable card
