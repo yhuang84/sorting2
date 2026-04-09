@@ -547,6 +547,43 @@ else:
     )
     st.divider()
 
+    # ---- Sample images (click to classify) -----------------------------------
+    SAMPLE_IMAGES = [
+        ("SW_SC_183_Face_s512_p03.jpg", "1"),
+        ("TW_HL_800__s512_p01.jpg",     "2"),
+        ("RK_TK_16_Back_s512_p02.jpg",  "3"),
+        ("PW_HL_803_s512_p00.jpg",      "4"),
+        ("JK_HS_52_Face_s512_p06.jpg",  "5"),
+    ]
+
+    st.markdown("#### Sample Images — click one to classify")
+    sample_cols = st.columns(len(SAMPLE_IMAGES))
+    clicked_sample = None
+
+    for col, (fname, label) in zip(sample_cols, SAMPLE_IMAGES):
+        sample_path = Path(fname)
+        if sample_path.exists():
+            with col:
+                st.image(str(sample_path), caption=label, width=130)
+                if st.button(f"Use this", key=f"sample_{fname}"):
+                    clicked_sample = (sample_path, label)
+        else:
+            with col:
+                st.markdown(
+                    f"<div style=\'color:#aaa;font-size:0.78rem;text-align:center\'>"
+                    f"{label}<br><i style=\'font-size:0.7rem\'>{fname}</i></div>",
+                    unsafe_allow_html=True,
+                )
+
+    if clicked_sample is not None:
+        sample_path, sample_label = clicked_sample
+        sample_img = Image.open(sample_path).convert("RGB")
+        st.success(f"Sample selected: **{sample_label}**")
+        run_classification(model, sample_img, layer_idx, layer_label,
+                           source_label=f"Sample — {sample_label}")
+
+    st.divider()
+
     # ---- Two tabs ------------------------------------------------------------
     tab_upload, tab_phone = st.tabs(
         ["📂 Upload from this computer", "📱 Use phone camera"]
