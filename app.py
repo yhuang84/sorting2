@@ -74,7 +74,7 @@ LAYER_OPTIONS = {
 }
 
 # Update this after deploying to Streamlit Cloud
-APP_BASE_URL = "https://your-app-name.streamlit.app"
+APP_BASE_URL = "https://sorting2.streamlit.app"
 
 
 # ==============================================================================
