@@ -3,18 +3,11 @@ Conv-Tex Fabric Classifier
 ==========================
 Two views controlled by URL query parameter:
   ?view=mobile  — phone upload page (simple, clean)
-  (default)     — desktop display page (auto-refreshes every 3s, runs classification)
-
-How it works:
-  1. Phone opens  https://your-app.streamlit.app/?view=mobile
-  2. Phone uploads a fabric image -> saved to /tmp on the server
-  3. Desktop polls /tmp every 3 seconds, detects new image, classifies it
+  (default)     — desktop page with Upload tab (drag & drop) + Phone tab (QR code)
 """
 
 import io
-import os
 import time
-import socket
 from pathlib import Path
 
 import numpy as np
@@ -44,11 +37,8 @@ TOP_N = 30
 HF_REPO_ID = "yh84ian/Conv_Tex"
 HF_FILENAME = "ConvNeXt-Small_focal_fold1_best.pth"
 
-# Shared file locations on the server (/tmp persists within a Streamlit Cloud instance)
-SHARED_IMAGE_PATH    = Path("/tmp/latest_fabric.jpg")
-SHARED_TIMESTAMP_PATH = Path("/tmp/latest_fabric_ts.txt")
-
-REFRESH_INTERVAL = 3   # seconds between desktop polls
+# Update this after deploying to Streamlit Cloud
+APP_BASE_URL = "https://your-app-name.streamlit.app"
 
 CATEGORY_DESCRIPTIONS = {
     "jerseyknit": "Jersey Knit — single-weft knit, soft & stretchy (e.g. T-shirts)",
@@ -73,9 +63,6 @@ LAYER_OPTIONS = {
     "Stage 4  (768 ch,  7x7) — final": 7,
 }
 
-# Update this after deploying to Streamlit Cloud
-APP_BASE_URL = "https://sorting2.streamlit.app"
-
 
 # ==============================================================================
 # QR CODE
@@ -94,6 +81,51 @@ def make_qr_image(url: str) -> bytes:
     img.save(buf, format="PNG")
     buf.seek(0)
     return buf.read()
+
+
+# ==============================================================================
+# DRAG-AND-DROP STYLES
+# Makes the st.file_uploader area visually larger and more prominent
+# ==============================================================================
+DRAG_DROP_CSS = """
+<style>
+/* Target the file uploader drop zone */
+[data-testid="stFileUploader"] {
+    width: 100%;
+}
+[data-testid="stFileUploader"] section {
+    border: 2.5px dashed #4C72B0;
+    border-radius: 16px;
+    padding: 48px 24px;
+    background: linear-gradient(135deg, #f0f4ff 0%, #fafafa 100%);
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: pointer;
+}
+[data-testid="stFileUploader"] section:hover {
+    border-color: #2a50a0;
+    background: linear-gradient(135deg, #e4eaff 0%, #f5f5f5 100%);
+}
+[data-testid="stFileUploader"] section > div {
+    font-size: 1.05rem;
+    color: #444;
+}
+/* Browse files button */
+[data-testid="stFileUploader"] section button {
+    background-color: #4C72B0;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    margin-top: 8px;
+}
+[data-testid="stFileUploader"] section button:hover {
+    background-color: #2a50a0;
+}
+</style>
+"""
 
 
 # ==============================================================================
@@ -190,7 +222,7 @@ class GradCAM:
 
 
 # ==============================================================================
-# FIGURES  — return plt.Figure, rendered with st.pyplot() (avoids media file bug)
+# FIGURES — return plt.Figure, rendered with st.pyplot() (avoids media file bug)
 # ==============================================================================
 def make_gradcam_figure(image_rgb, cam, pred_label, confidence) -> plt.Figure:
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
@@ -378,7 +410,7 @@ def run_classification(model, image, layer_idx, layer_label, source_label=""):
 
 
 # ==============================================================================
-# PAGE CONFIG  (must come before any st.* calls that render UI)
+# PAGE CONFIG
 # ==============================================================================
 st.set_page_config(
     page_title="Conv-Tex Fabric Classifier",
@@ -395,44 +427,66 @@ view = st.query_params.get("view", "desktop")
 
 # ██████████████████████████████████████████████████████████████████████████████
 #  MOBILE VIEW   (?view=mobile)
-#  Phone opens this URL, uploads an image -> saved to /tmp on the server
 # ██████████████████████████████████████████████████████████████████████████████
 if view == "mobile":
 
     st.title("📱 Upload Fabric Image")
     st.markdown(
-        "Take a photo or choose a file.  \n"
-        "The desktop screen will update automatically."
+        "Take a photo or choose a file from your phone.  \n"
+        "Open the result on this screen."
     )
 
+    # Inject drag-drop styles on mobile too
+    st.markdown(DRAG_DROP_CSS, unsafe_allow_html=True)
+
     uploaded = st.file_uploader(
-        "Choose an image",
+        "Drop image here or tap to browse",
         type=["jpg", "jpeg", "png", "webp", "bmp", "tif", "tiff"],
-        label_visibility="collapsed",
+        label_visibility="visible",
     )
 
     if uploaded is not None:
         img_bytes = uploaded.read()
+        st.image(img_bytes, caption="Your uploaded image")
+        st.success("Done! You can upload another image to classify again.")
 
-        # Save to shared location
-        SHARED_IMAGE_PATH.write_bytes(img_bytes)
-        SHARED_TIMESTAMP_PATH.write_text(str(time.time()))
+        # Also run classification directly on mobile if model is available
+        # (optional — load model on mobile view too for self-contained use)
+        if "model" not in st.session_state:
+            with st.spinner("Loading model..."):
+                try:
+                    st.session_state["model"] = load_model_from_hub(
+                        HF_REPO_ID, HF_FILENAME
+                    )
+                except Exception as e:
+                    st.error(f"Model load failed: {e}")
+                    st.stop()
 
-        # Confirm on phone
-        st.image(img_bytes, caption="Uploaded successfully")
-        st.success("Image sent to desktop!")
-        st.markdown(
-            "<p style='color:#888; font-size:0.85rem; margin-top:20px;'>"
-            "Upload another image to replace the current one.</p>",
-            unsafe_allow_html=True,
+        image_mobile = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+
+        # Minimal sidebar for mobile
+        with st.sidebar:
+            layer_label_m = st.selectbox(
+                "Feature map layer",
+                options=list(LAYER_OPTIONS.keys()),
+                index=3,
+            )
+            layer_idx_m = LAYER_OPTIONS[layer_label_m]
+
+        run_classification(
+            st.session_state["model"], image_mobile,
+            layer_idx_m, layer_label_m,
+            source_label="Phone Upload",
         )
 
 
 # ██████████████████████████████████████████████████████████████████████████████
-#  DESKTOP VIEW  (default / ?view=desktop)
-#  Polls /tmp every REFRESH_INTERVAL seconds for a new image from the phone
+#  DESKTOP VIEW  (default)
 # ██████████████████████████████████████████████████████████████████████████████
 else:
+
+    # Inject drag-drop styles
+    st.markdown(DRAG_DROP_CSS, unsafe_allow_html=True)
 
     # ---- Sidebar -------------------------------------------------------------
     with st.sidebar:
@@ -485,80 +539,47 @@ else:
 
     model = st.session_state["model"]
 
-    # ---- Header + QR code ---------------------------------------------------
-    mobile_url = f"{APP_BASE_URL}?view=mobile"
-
+    # ---- Header --------------------------------------------------------------
     st.title("🧵 Conv-Tex Fabric Classifier")
-
-    col_instructions, col_qr = st.columns([3, 1])
-    with col_instructions:
-        st.markdown(
-            f"""
-            **How to use with your phone:**
-            1. Scan the QR code (or open `{mobile_url}`)
-            2. Upload a fabric photo on your phone
-            3. This desktop screen refreshes automatically every {REFRESH_INTERVAL}s
-            """
-        )
-    with col_qr:
-        st.image(make_qr_image(mobile_url), width=150,
-                 caption="Phone upload page")
-
+    st.markdown(
+        "Fine-grained classification of 5 fabric structures "
+        "using ConvNeXt-Small + Focal Loss."
+    )
     st.divider()
 
-    # ---- Tabs ---------------------------------------------------------------
-    tab_live, tab_upload = st.tabs(
-        ["📲 Live — from phone", "📂 Upload — from this computer"]
+    # ---- Two tabs ------------------------------------------------------------
+    tab_upload, tab_phone = st.tabs(
+        ["📂 Upload from this computer", "📱 Use phone camera"]
     )
 
-    # ── Live tab ──────────────────────────────────────────────────────────────
-    with tab_live:
-
-        if "last_seen_ts" not in st.session_state:
-            st.session_state["last_seen_ts"] = 0.0
-
-        has_image    = SHARED_IMAGE_PATH.exists()
-        has_ts_file  = SHARED_TIMESTAMP_PATH.exists()
-
-        if has_image and has_ts_file:
-            server_ts = float(SHARED_TIMESTAMP_PATH.read_text().strip())
-            img_bytes = SHARED_IMAGE_PATH.read_bytes()
-            image_live = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-
-            if server_ts > st.session_state["last_seen_ts"]:
-                # New image — classify it
-                st.session_state["last_seen_ts"] = server_ts
-                st.success("New image received from phone — classifying...")
-                run_classification(model, image_live, layer_idx, layer_label,
-                                   source_label="Phone Upload")
-            else:
-                # Same image as before — show without re-running
-                st.info("Waiting for a new image from your phone...")
-                st.image(image_live, caption="Last received image", width=420)
-
-        else:
-            st.info(
-                "No image received yet.  \n"
-                "Scan the QR code above and upload a photo from your phone."
-            )
-
-        # Auto-refresh countdown
-        placeholder = st.empty()
-        for remaining in range(REFRESH_INTERVAL, 0, -1):
-            placeholder.caption(f"Refreshing in {remaining}s...")
-            time.sleep(1)
-        placeholder.caption("Refreshing now...")
-        st.rerun()
-
-    # ── Local upload tab ──────────────────────────────────────────────────────
+    # ── Tab 1: Desktop upload with drag-and-drop ──────────────────────────────
     with tab_upload:
-        st.markdown("Upload a fabric image directly from this computer.")
-        image_file = st.file_uploader(
-            "Choose a fabric image",
-            type=["jpg", "jpeg", "png", "tif", "tiff", "bmp", "webp"],
+
+        st.markdown(
+            "**Drag and drop** a fabric image below, or click **Browse files**."
         )
+
+        image_file = st.file_uploader(
+            "Drop your fabric image here",
+            type=["jpg", "jpeg", "png", "tif", "tiff", "bmp", "webp"],
+            label_visibility="collapsed",   # hide label; instruction above is enough
+        )
+
         if image_file is None:
-            st.info("Upload a fabric image above to get started.")
+            # Friendly placeholder shown inside the (now large) drop zone area
+            st.markdown(
+                """
+                <div style="
+                    text-align:center;
+                    color:#888;
+                    font-size:0.9rem;
+                    margin-top:12px;
+                ">
+                    Supported formats: JPG · PNG · WEBP · TIF · BMP
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
         else:
             try:
                 image = Image.open(image_file).convert("RGB")
@@ -567,3 +588,29 @@ else:
                 st.stop()
             run_classification(model, image, layer_idx, layer_label,
                                source_label=image_file.name)
+
+    # ── Tab 2: Phone QR code ──────────────────────────────────────────────────
+    with tab_phone:
+
+        mobile_url = f"{APP_BASE_URL}?view=mobile"
+
+        col_qr, col_info = st.columns([1, 2], gap="large")
+
+        with col_qr:
+            st.image(make_qr_image(mobile_url), width=200,
+                     caption="Scan with your phone")
+
+        with col_info:
+            st.markdown(
+                f"""
+#### How to use your phone
+
+1. **Scan the QR code** with your phone camera, or open this link:  
+   `{mobile_url}`
+2. Upload or take a photo of your fabric on the phone page.
+3. Classification result + Grad-CAM appear on your phone screen instantly.
+
+> After deploying, update `APP_BASE_URL` in the code to your actual
+> Streamlit Cloud link (e.g. `https://conv-tex.streamlit.app`).
+                """
+            )
