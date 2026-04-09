@@ -547,37 +547,33 @@ else:
     )
     st.divider()
 
-    # ---- Sample images (click to classify) -----------------------------------
+        # ---- Sample images (click to classify) -----------------------------------
     SAMPLE_IMAGES = [
-        ("SW_SC_183_Face_s512_p03.jpg", "1"),
-        ("TW_HL_800__s512_p01.jpg",     "2"),
-        ("RK_TK_16_Back_s512_p02.jpg",  "3"),
-        ("PW_HL_803_s512_p00.jpg",      "4"),
-        ("JK_HS_52_Face_s512_p06.jpg",  "5"),
+        ("SW_SC_183_Face_s512_p03.jpg", "Satin Weave"),
+        ("TW_HL_800__s512_p01.jpg",     "Twill Weave"),
+        ("RK_TK_16_Back_s512_p02.jpg",  "Rib Knit"),
+        ("PW_HL_803_s512_p00.jpg",      "Plain Weave"),
+        ("JK_HS_52_Face_s512_p06.jpg",  "Jersey Knit"),
     ]
 
     st.markdown("#### Sample Images — click one to classify")
     sample_cols = st.columns(len(SAMPLE_IMAGES))
-    clicked_sample = None
 
     for col, (fname, label) in zip(sample_cols, SAMPLE_IMAGES):
         sample_path = Path(fname)
-        if sample_path.exists():
-            with col:
-                st.image(str(sample_path), caption=label, width=130, output_format="PNG")
+        with col:
+            if sample_path.exists():
+                st.image(str(sample_path), caption=label, width=130)
+                if st.button(f"Classify", key=f"btn_{fname}", use_container_width=True):
+                    st.session_state["selected_sample"] = (str(sample_path), label)
+            else:
+                st.caption(f"{label}\n({fname} not found)")
 
-        else:
-            with col:
-                st.markdown(
-                    f"<div style=\'color:#aaa;font-size:0.78rem;text-align:center\'>"
-                    f"{label}<br><i style=\'font-size:0.7rem\'>{fname}</i></div>",
-                    unsafe_allow_html=True,
-                )
-
-    if clicked_sample is not None:
-        sample_path, sample_label = clicked_sample
+    # Run classification for selected sample
+    if "selected_sample" in st.session_state:
+        sample_path, sample_label = st.session_state["selected_sample"]
         sample_img = Image.open(sample_path).convert("RGB")
-        st.success(f"Sample selected: **{sample_label}**")
+        st.success(f"Sample selected: **{sample_label}** — original size: {sample_img.size[0]}×{sample_img.size[1]}")
         run_classification(model, sample_img, layer_idx, layer_label,
                            source_label=f"Sample — {sample_label}")
 
