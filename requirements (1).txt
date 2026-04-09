@@ -1,0 +1,23 @@
+# Conv-Tex Fabric Classifier — Python dependencies
+
+# Deep learning
+torch==2.2.2
+torchvision==0.17.2
+
+# Model hub
+huggingface-hub>=0.23.0
+
+# Web app — no version pin, let Streamlit Cloud use its default
+streamlit>=1.36.0
+
+# Image handling
+Pillow>=10.0.0
+
+# Visualization
+matplotlib>=3.8.0
+
+# QR code generation
+qrcode[pil]>=7.4
+
+# Utilities
+numpy>=1.26.0

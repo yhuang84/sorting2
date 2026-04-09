@@ -306,7 +306,7 @@ def run_classification(model, image, layer_idx, layer_label, source_label=""):
 
     with col_img:
         st.subheader("Input Image")
-        st.image(image, use_container_width=True, caption=source_label)
+        st.image(image, caption=source_label)
 
     with col_res:
         st.subheader("Prediction")
@@ -340,7 +340,7 @@ def run_classification(model, image, layer_idx, layer_label, source_label=""):
             """,
             unsafe_allow_html=True,
         )
-        st.image(make_bar_chart(probs), use_container_width=True)
+        st.image(make_bar_chart(probs))
 
     with st.expander("Detailed probability table"):
         for cat, p in sorted(zip(CATEGORIES, probs), key=lambda x: x[1], reverse=True):
@@ -364,7 +364,7 @@ def run_classification(model, image, layer_idx, layer_label, source_label=""):
             model.zero_grad()
         st.image(
             make_gradcam_figure(image_rgb, cam_map, pred_label, confidence),
-            use_container_width=True,
+            
         )
         st.caption("Hot (red) = high contribution to prediction; cool (blue) = low contribution.")
 
@@ -379,14 +379,14 @@ def run_classification(model, image, layer_idx, layer_label, source_label=""):
         st.subheader("Composite Overlay")
         st.image(
             make_feature_overlay_figure(fmaps, image_rgb, layer_label),
-            use_container_width=True,
+            
         )
         st.caption(f"Average of the top-{TOP_N} most activated channels overlaid on the input.")
 
         st.subheader(f"Top-{TOP_N} Individual Feature Maps")
         st.image(
             make_feature_map_figure(fmaps, image_rgb, layer_label),
-            use_container_width=True,
+            
         )
         st.caption("Each cell = one feature map channel. Brighter (yellow) = stronger activation.")
 
